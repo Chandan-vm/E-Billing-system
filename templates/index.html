@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — E-Billing{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">{{ cfg.business_name }} — Dashboard</div>
+    <div class="page-sub">Business performance at a glance</div>
+  </div>
+  <a href="/invoices/create" class="btn btn-primary">＋ New Invoice</a>
+</div>
+
+<!-- KPI Cards -->
+<div class="kpi-grid">
+  <div class="kpi-card">
+    <div class="kpi-label">Total Revenue</div>
+    <div class="kpi-value">{{ cfg.currency_symbol }}{{ "{:,.0f}".format(kpi.total_revenue or 0) }}</div>
+    {% if kpi.mom_growth_pct is not none %}
+    <div class="kpi-change {% if kpi.mom_growth_pct >= 0 %}up{% else %}down{% endif %}">
+      {{ "▲" if kpi.mom_growth_pct >= 0 else "▼" }} {{ kpi.mom_growth_pct|abs }}% vs last month
+    </div>
+    {% endif %}
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">This Month</div>
+    <div class="kpi-value">{{ cfg.currency_symbol }}{{ "{:,.0f}".format(kpi.this_month_revenue or 0) }}</div>
+    <div class="kpi-change neutral">{{ kpi.total_invoices or 0 }} total invoices</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Avg Invoice Value</div>
+    <div class="kpi-value">{{ cfg.currency_symbol }}{{ "{:,.0f}".format(kpi.avg_invoice_value or 0) }}</div>
+    <div class="kpi-change neutral">Per transaction</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">ARPU</div>
+    <div class="kpi-value">{{ cfg.currency_symbol }}{{ "{:,.0f}".format(kpi.arpu or 0) }}</div>
+    <div class="kpi-change neutral">Avg revenue per user</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Customers</div>
+    <div class="kpi-value">{{ kpi.unique_customers or 0 }}</div>
+    <div class="kpi-change neutral">Unique active customers</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Repeat Rate</div>
+    <div class="kpi-value">{{ kpi.repeat_rate_pct or 0 }}%</div>
+    <div class="kpi-change {% if (kpi.repeat_rate_pct or 0) > 40 %}up{% else %}neutral{% endif %}">
+      {{ kpi.repeat_count or 0 }} returning customers
+    </div>
+  </div>
+</div>
+
+<!-- Charts Row -->
+<div class="grid-2 mb-24">
+
+  <!-- Revenue Trend -->
+  <div class="card">
+    <div class="card-title">Monthly Revenue Trend (6M)</div>
+    {% if trend %}
+    <div class="bar-chart">
+      {% set max_rev = trend | map(attribute='net_revenue') | max %}
+      {% for row in trend %}
+      <div class="bar-row">
+        <div class="bar-label">{{ row.label }}</div>
+        <div class="bar-track">
+          <div class="bar-fill" style="width:{{ (row.net_revenue / max_rev * 100)|round }}%"></div>
+        </div>
+        <div class="bar-val">{{ cfg.currency_symbol }}{{ "{:,.0f}".format(row.net_revenue) }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-muted" style="padding:20px 0">No data yet.</div>
+    {% endif %}
+  </div>
+
+  <!-- Invoice Status -->
+  <div class="card">
+    <div class="card-title">Invoice Status Breakdown</div>
+    {% if statuses %}
+    <div class="bar-chart">
+      {% set max_amt = statuses | map(attribute='total') | max %}
+      {% for s in statuses %}
+      <div class="bar-row">
+        <div class="bar-label">
+          <span class="badge badge-{{ s.status }}">{{ s.status }}</span>
+          <span style="margin-left:6px;color:var(--muted)">×{{ s.count }}</span>
+        </div>
+        <div class="bar-track">
+          <div class="bar-fill {% if s.status=='paid' %}green{% elif s.status=='overdue' %}{% endif %}"
+               style="width:{{ (s.total / max_amt * 100)|round if max_amt else 0 }}%;
+                      background: {% if s.status=='paid' %}var(--green){% elif s.status=='overdue' %}var(--red){% elif s.status=='sent' %}var(--accent){% else %}var(--muted){% endif %}">
+          </div>
+        </div>
+        <div class="bar-val">{{ cfg.currency_symbol }}{{ "{:,.0f}".format(s.total) }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Products + Segments Row -->
+<div class="grid-2 mb-24">
+
+  <!-- Top Products -->
+  <div class="card">
+    <div class="flex-between mb-16">
+      <div class="card-title" style="margin-bottom:0">Top Products</div>
+      <a href="/analytics" class="btn btn-outline btn-sm">Full Report →</a>
+    </div>
+    {% if top_products %}
+    <div class="bar-chart">
+      {% set max_p = top_products | map(attribute='total_revenue') | max %}
+      {% for p in top_products %}
+      <div class="bar-row">
+        <div class="bar-label">{{ p.product }}</div>
+        <div class="bar-track">
+          <div class="bar-fill purple" style="width:{{ (p.total_revenue / max_p * 100)|round }}%"></div>
+        </div>
+        <div class="bar-val">{{ cfg.currency_symbol }}{{ "{:,.0f}".format(p.total_revenue) }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Customer Segments -->
+  <div class="card">
+    <div class="card-title">Customer Segments</div>
+    {% if segments %}
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Segment</th><th>Customers</th><th>Revenue</th></tr></thead>
+        <tbody>
+        {% for s in segments %}
+        <tr>
+          <td><span class="badge badge-{{ s.segment|lower|replace('-','') }}">{{ s.segment }}</span></td>
+          <td class="text-mono">{{ s.customers }}</td>
+          <td class="text-mono">{{ cfg.currency_symbol }}{{ "{:,.0f}".format(s.total_revenue) }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Quick Links -->
+<div class="card">
+  <div class="card-title">Quick Actions</div>
+  <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:4px">
+    <a href="/invoices/create" class="btn btn-primary">＋ Create Invoice</a>
+    <a href="/customers/add"  class="btn btn-outline">＋ Add Customer</a>
+    <a href="/products/add"   class="btn btn-outline">＋ Add Product</a>
+    <a href="/analytics"      class="btn btn-outline">◈ Full Analytics</a>
+    <a href="/export/invoices" class="btn btn-outline">↓ Export CSV</a>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Products — E-Billing{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><div class="page-title">Products & Services</div><div class="page-sub">{{ products|length }} active</div></div>
+  <div class="actions">
+    <a href="/export/products" class="btn btn-outline btn-sm">↓ Export</a>
+    <a href="/products/add" class="btn btn-primary">＋ Add Product</a>
+  </div>
+</div>
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Name</th><th>Category</th><th>Type</th><th>Unit</th><th style="text-align:right">Price</th><th>Tax %</th><th>HSN/SAC</th><th>Actions</th></tr></thead>
+      <tbody>
+      {% for p in products %}
+      <tr>
+        <td><strong>{{ p.name }}</strong><br><span style="font-size:11px;color:var(--muted)">{{ p.description[:50] if p.description else '' }}</span></td>
+        <td class="text-muted">{{ p.category }}</td>
+        <td><span class="badge {% if p.is_service %}badge-sent{% else %}badge-paid{% endif %}">{{ 'Service' if p.is_service else 'Product' }}</span></td>
+        <td class="text-muted">{{ p.unit }}</td>
+        <td class="text-mono" style="text-align:right">₹{{ "{:,.2f}".format(p.unit_price) }}</td>
+        <td class="text-mono">{{ p.tax_rate }}%</td>
+        <td class="text-mono text-muted" style="font-size:12px">{{ p.hsn_sac_code or '—' }}</td>
+        <td>
+          <div class="actions">
+            <a href="/products/edit/{{ p.id }}" class="btn btn-outline btn-sm">Edit</a>
+            <form method="POST" action="/products/delete/{{ p.id }}" style="display:inline" onsubmit="return confirm('Remove this product?')">
+              <button class="btn btn-danger btn-sm">Del</button>
+            </form>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

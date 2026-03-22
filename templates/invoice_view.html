@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block title %}Invoice {{ inv.invoice_number }} — E-Billing{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">{{ inv.invoice_number }}</div>
+    <div class="page-sub">
+      <span class="badge badge-{{ inv.status }}">{{ inv.status|upper }}</span>
+      &nbsp;{{ inv.invoice_date }}
+    </div>
+  </div>
+  <div class="actions">
+    <button onclick="window.print()" class="btn btn-outline">🖨 Print</button>
+    {% if inv.status == 'draft' %}
+    <form method="POST" action="/invoices/{{ inv.id }}/status/sent" style="display:inline">
+      <button class="btn btn-primary">Send Invoice</button>
+    </form>
+    {% elif inv.status == 'sent' %}
+    <form method="POST" action="/invoices/{{ inv.id }}/status/paid" style="display:inline">
+      <button class="btn btn-green">✓ Mark Paid</button>
+    </form>
+    {% endif %}
+    <form method="POST" action="/invoices/{{ inv.id }}/status/cancelled" style="display:inline">
+      <button class="btn btn-danger btn-sm">Cancel</button>
+    </form>
+    <a href="/invoices" class="btn btn-outline">← Back</a>
+  </div>
+</div>
+
+<!-- Invoice Document -->
+<div class="card" id="invoiceDoc" style="max-width:900px">
+
+  <!-- Header -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;padding-bottom:20px;border-bottom:2px solid var(--border)">
+    <div>
+      <div style="font-size:22px;font-weight:700;color:var(--accent);margin-bottom:4px">{{ cfg.business_name }}</div>
+      <div style="color:var(--muted);font-size:13px;line-height:1.8">
+        {{ cfg.business_address }}<br>
+        GSTIN: {{ cfg.business_gstin }}<br>
+        State: {{ cfg.business_state }}
+      </div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:28px;font-weight:700;font-family:var(--mono);color:var(--text);letter-spacing:1px">INVOICE</div>
+      <div style="font-family:var(--mono);color:var(--accent);font-size:14px">{{ inv.invoice_number }}</div>
+      <div style="margin-top:8px;color:var(--muted);font-size:13px;line-height:1.8">
+        Date: {{ inv.invoice_date }}<br>
+        Due:  {{ inv.due_date or 'On Receipt' }}<br>
+        Type: {{ inv.supply_type|upper }}-STATE
+      </div>
+    </div>
+  </div>
+
+  <!-- Billing Info -->
+  <div class="grid-2" style="margin-bottom:24px">
+    <div>
+      <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Bill To</div>
+      <div style="font-weight:600;font-size:15px">{{ inv.cname }}</div>
+      <div style="color:var(--muted);font-size:13px;line-height:1.8;margin-top:4px">
+        {{ inv.address or '' }}<br>
+        {{ inv.city or '' }}{% if inv.state %}, {{ inv.state }}{% endif %}{% if inv.pincode %} — {{ inv.pincode }}{% endif %}<br>
+        {% if inv.email %}Email: {{ inv.email }}<br>{% endif %}
+        {% if inv.phone %}Phone: {{ inv.phone }}<br>{% endif %}
+        {% if inv.cgstin %}GSTIN: {{ inv.cgstin }}{% endif %}
+      </div>
+    </div>
+    <div>
+      <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Payment Info</div>
+      <div style="color:var(--muted);font-size:13px;line-height:1.8">
+        Bank: {{ cfg.bank_name }}<br>
+        Account: {{ cfg.bank_account }}<br>
+        IFSC: {{ cfg.bank_ifsc }}
+      </div>
+    </div>
+  </div>
+
+  <!-- Items Table -->
+  <div class="table-wrap" style="margin-bottom:20px">
+    <table>
+      <thead>
+        <tr style="background:var(--surface2)">
+          <th>#</th>
+          <th>Description</th>
+          <th>HSN/SAC</th>
+          <th style="text-align:right">Qty</th>
+          <th style="text-align:right">Rate</th>
+          <th style="text-align:right">Taxable</th>
+          {% if inv.supply_type == 'intra' %}
+          <th style="text-align:right">CGST</th>
+          <th style="text-align:right">SGST</th>
+          {% else %}
+          <th style="text-align:right">IGST</th>
+          {% endif %}
+          <th style="text-align:right">Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for i, item in items | enumerate(start=1) %}
+      <tr>
+        <td class="text-muted">{{ i }}</td>
+        <td><strong>{{ item.description }}</strong></td>
+        <td class="text-muted text-mono" style="font-size:12px">—</td>
+        <td class="text-mono" style="text-align:right">{{ item.quantity }}</td>
+        <td class="text-mono" style="text-align:right">{{ cfg.currency_symbol }}{{ "{:,.2f}".format(item.unit_price) }}</td>
+        <td class="text-mono" style="text-align:right">{{ cfg.currency_symbol }}{{ "{:,.2f}".format(item.line_subtotal) }}</td>
+        {% if inv.supply_type == 'intra' %}
+        <td class="text-mono" style="text-align:right;color:var(--muted)">
+          {{ "{:.1f}".format(item.tax_rate/2) }}%<br>{{ cfg.currency_symbol }}{{ "{:,.2f}".format(item.cgst or 0) }}
+        </td>
+        <td class="text-mono" style="text-align:right;color:var(--muted)">
+          {{ "{:.1f}".format(item.tax_rate/2) }}%<br>{{ cfg.currency_symbol }}{{ "{:,.2f}".format(item.sgst or 0) }}
+        </td>
+        {% else %}
+        <td class="text-mono" style="text-align:right;color:var(--muted)">
+          {{ "{:.1f}".format(item.tax_rate) }}%<br>{{ cfg.currency_symbol }}{{ "{:,.2f}".format(item.igst or 0) }}
+        </td>
+        {% endif %}
+        <td class="text-mono" style="text-align:right;font-weight:600">{{ cfg.currency_symbol }}{{ "{:,.2f}".format(item.line_total) }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Totals -->
+  <div style="display:flex;justify-content:flex-end;margin-bottom:24px">
+    <div style="width:320px;font-size:13px">
+      <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border)">
+        <span class="text-muted">Subtotal (Taxable Value)</span>
+        <span class="text-mono">{{ cfg.currency_symbol }}{{ "{:,.2f}".format(inv.subtotal) }}</span>
+      </div>
+      {% if inv.supply_type == 'intra' %}
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)">
+        <span class="text-muted">CGST</span>
+        <span class="text-mono">{{ cfg.currency_symbol }}{{ "{:,.2f}".format(inv.cgst_amount or 0) }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)">
+        <span class="text-muted">SGST</span>
+        <span class="text-mono">{{ cfg.currency_symbol }}{{ "{:,.2f}".format(inv.sgst_amount or 0) }}</span>
+      </div>
+      {% else %}
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)">
+        <span class="text-muted">IGST</span>
+        <span class="text-mono">{{ cfg.currency_symbol }}{{ "{:,.2f}".format(inv.igst_amount or 0) }}</span>
+      </div>
+      {% endif %}
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)">
+        <span class="text-muted">Total Tax</span>
+        <span class="text-mono">{{ cfg.currency_symbol }}{{ "{:,.2f}".format(inv.total_tax or 0) }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:12px 0;font-size:18px;font-weight:700">
+        <span>Total Amount</span>
+        <span class="text-mono text-green">{{ cfg.currency_symbol }}{{ "{:,.2f}".format(inv.total_amount) }}</span>
+      </div>
+    </div>
+  </div>
+
+  {% if inv.notes %}
+  <div style="background:var(--surface2);border-radius:var(--radius);padding:14px;font-size:13px;color:var(--muted)">
+    <strong style="color:var(--text)">Notes:</strong> {{ inv.notes }}
+  </div>
+  {% endif %}
+
+  <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);text-align:center">
+    This is a computer-generated invoice. Thank you for your business!
+  </div>
+</div>
+
+<style>
+@media print {
+  .sidebar,.page-header .actions,button { display:none!important; }
+  .main { margin:0; padding:0; }
+  #invoiceDoc { border:none; max-width:100%; }
+}
+</style>
+{% endblock %}

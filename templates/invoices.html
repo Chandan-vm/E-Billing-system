@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Invoices — E-Billing{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">Invoices</div>
+    <div class="page-sub">{{ invoices|length }} invoices</div>
+  </div>
+  <div class="actions">
+    <a href="/export/invoices" class="btn btn-outline btn-sm">↓ Export CSV</a>
+    <a href="/invoices/create" class="btn btn-primary">＋ New Invoice</a>
+  </div>
+</div>
+
+<!-- Filter Tabs -->
+<div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap">
+  {% for s in ['all','draft','sent','paid','overdue','cancelled'] %}
+  <a href="/invoices?status={{ s }}"
+     class="btn btn-sm {% if status_filter==s %}btn-primary{% else %}btn-outline{% endif %}">
+    {{ s|capitalize }}
+  </a>
+  {% endfor %}
+</div>
+
+<div class="card">
+  {% if invoices %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Invoice #</th>
+          <th>Customer</th>
+          <th>Date</th>
+          <th>Due</th>
+          <th>Status</th>
+          <th>Supply</th>
+          <th style="text-align:right">Amount</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for inv in invoices %}
+      <tr>
+        <td><a href="/invoices/{{ inv.id }}" class="text-accent text-mono">{{ inv.invoice_number }}</a></td>
+        <td><strong>{{ inv.customer_name }}</strong></td>
+        <td class="text-mono text-muted">{{ inv.invoice_date }}</td>
+        <td class="text-mono text-muted">{{ inv.due_date or '—' }}</td>
+        <td><span class="badge badge-{{ inv.status }}">{{ inv.status }}</span></td>
+        <td class="text-muted" style="font-size:12px">{{ inv.supply_type|upper }}</td>
+        <td class="text-mono text-green" style="text-align:right"><strong>₹{{ "{:,.2f}".format(inv.total_amount) }}</strong></td>
+        <td>
+          <div class="actions">
+            <a href="/invoices/{{ inv.id }}" class="btn btn-outline btn-sm">View</a>
+            {% if inv.status == 'sent' %}
+            <form method="POST" action="/invoices/{{ inv.id }}/status/paid" style="display:inline">
+              <button class="btn btn-sm btn-green">Paid</button>
+            </form>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div style="text-align:center;padding:48px;color:var(--muted)">
+    No invoices found. <a href="/invoices/create" class="text-accent">Create one →</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

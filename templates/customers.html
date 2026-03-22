@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Customers — E-Billing{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><div class="page-title">Customers</div><div class="page-sub">{{ customers|length }} customers</div></div>
+  <div class="actions">
+    <a href="/export/customers" class="btn btn-outline btn-sm">↓ Export</a>
+    <a href="/customers/add" class="btn btn-primary">＋ Add Customer</a>
+  </div>
+</div>
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>City</th><th>State</th><th>GSTIN</th><th>Segment</th><th>Actions</th></tr></thead>
+      <tbody>
+      {% for c in customers %}
+      <tr>
+        <td><strong>{{ c.name }}</strong></td>
+        <td class="text-muted">{{ c.email or '—' }}</td>
+        <td class="text-mono" style="font-size:12px">{{ c.phone or '—' }}</td>
+        <td class="text-muted">{{ c.city or '—' }}</td>
+        <td class="text-muted">{{ c.state or '—' }}</td>
+        <td class="text-mono text-muted" style="font-size:11px">{{ c.gstin or '—' }}</td>
+        <td><span class="badge badge-{{ c.segment|lower|replace('-','') }}">{{ c.segment }}</span></td>
+        <td><a href="/customers/edit/{{ c.id }}" class="btn btn-outline btn-sm">Edit</a></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

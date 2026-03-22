@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Settings — E-Billing{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><div class="page-title">Business Settings</div><div class="page-sub">Configure your billing details</div></div>
+</div>
+<div class="card" style="max-width:700px">
+  <form method="POST" action="/settings">
+    <div class="form-grid">
+      <div class="form-group full">
+        <label>Business Name</label>
+        <input name="business_name" value="{{ cfg.business_name }}"/>
+      </div>
+      <div class="form-group full">
+        <label>Business Address</label>
+        <textarea name="business_address">{{ cfg.business_address }}</textarea>
+      </div>
+      <div class="form-group">
+        <label>GSTIN</label>
+        <input name="business_gstin" value="{{ cfg.business_gstin }}"/>
+      </div>
+      <div class="form-group">
+        <label>State</label>
+        <input name="business_state" value="{{ cfg.business_state }}"/>
+      </div>
+      <div class="form-group">
+        <label>Currency Symbol</label>
+        <input name="currency_symbol" value="{{ cfg.currency_symbol }}"/>
+      </div>
+      <div class="form-group">
+        <label>Invoice Number Prefix</label>
+        <input name="invoice_prefix" value="{{ cfg.invoice_prefix }}"/>
+      </div>
+      <div class="form-group">
+        <label>Default Tax Rate %</label>
+        <input name="default_tax_rate" type="number" value="{{ cfg.default_tax_rate }}"/>
+      </div>
+    </div>
+    <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+      <div class="card-title">Bank Details</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Bank Name</label>
+          <input name="bank_name" value="{{ cfg.bank_name }}"/>
+        </div>
+        <div class="form-group">
+          <label>Account Number</label>
+          <input name="bank_account" value="{{ cfg.bank_account }}"/>
+        </div>
+        <div class="form-group">
+          <label>IFSC Code</label>
+          <input name="bank_ifsc" value="{{ cfg.bank_ifsc }}"/>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:20px">
+      <button type="submit" class="btn btn-primary">Save Settings</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

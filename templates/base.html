@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>{% block title %}E-Billing System{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #0d0f14;
+    --surface:   #151821;
+    --surface2:  #1c2030;
+    --border:    #2a2f42;
+    --accent:    #4f8ef7;
+    --accent2:   #7c5af0;
+    --green:     #34d97b;
+    --yellow:    #f5c842;
+    --red:       #f05c5c;
+    --orange:    #f0904a;
+    --text:      #e2e8f8;
+    --muted:     #7a84a3;
+    --mono:      'IBM Plex Mono', monospace;
+    --sans:      'IBM Plex Sans', sans-serif;
+    --radius:    6px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; line-height: 1.6; }
+
+  /* ── Layout ── */
+  .layout   { display: flex; min-height: 100vh; }
+  .sidebar  { width: 220px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 0; flex-shrink: 0; position: fixed; height: 100vh; overflow-y: auto; }
+  .main     { margin-left: 220px; flex: 1; padding: 28px 32px; max-width: 1400px; }
+
+  /* ── Sidebar ── */
+  .logo     { padding: 20px 20px 16px; border-bottom: 1px solid var(--border); }
+  .logo-name{ font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--accent); letter-spacing: 1px; text-transform: uppercase; }
+  .logo-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  nav       { padding: 12px 0; flex: 1; }
+  nav a     { display: flex; align-items: center; gap: 10px; padding: 9px 20px; color: var(--muted); text-decoration: none; font-size: 13px; transition: all .15s; border-left: 3px solid transparent; }
+  nav a:hover, nav a.active { color: var(--text); background: var(--surface2); border-left-color: var(--accent); }
+  nav .section-label { padding: 16px 20px 6px; font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; }
+
+  /* ── Page Header ── */
+  .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+  .page-title  { font-size: 20px; font-weight: 600; color: var(--text); }
+  .page-sub    { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  /* ── Cards ── */
+  .card        { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+  .card-title  { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+
+  /* ── KPI Cards ── */
+  .kpi-grid    { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .kpi-card    { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; }
+  .kpi-label   { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .kpi-value   { font-family: var(--mono); font-size: 26px; font-weight: 600; color: var(--text); margin: 6px 0 4px; }
+  .kpi-change  { font-size: 12px; }
+  .kpi-change.up   { color: var(--green); }
+  .kpi-change.down { color: var(--red); }
+  .kpi-change.neutral { color: var(--muted); }
+
+  /* ── Tables ── */
+  .table-wrap  { overflow-x: auto; }
+  table        { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th           { text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  td           { padding: 11px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td  { background: var(--surface2); }
+
+  /* ── Badges ── */
+  .badge       { display: inline-block; padding: 2px 9px; border-radius: 12px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+  .badge-paid       { background: #0f2e1a; color: var(--green); border: 1px solid #1a5030; }
+  .badge-sent       { background: #1a2540; color: var(--accent); border: 1px solid #2a3f70; }
+  .badge-draft      { background: #252830; color: var(--muted); border: 1px solid var(--border); }
+  .badge-overdue    { background: #2e1515; color: var(--red); border: 1px solid #5a2020; }
+  .badge-cancelled  { background: #252020; color: var(--muted); border: 1px solid var(--border); }
+  .badge-vip        { background: #2a1f40; color: #b48af0; border: 1px solid #4a3070; }
+  .badge-loyal      { background: #1a2a40; color: var(--accent); border: 1px solid #2a4070; }
+  .badge-returning  { background: #1a2e20; color: var(--green); border: 1px solid #2a5030; }
+  .badge-atrisk     { background: #2e2010; color: var(--orange); border: 1px solid #5a3a10; }
+  .badge-new        { background: #252a30; color: var(--muted); border: 1px solid var(--border); }
+
+  /* ── Buttons ── */
+  .btn         { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: var(--radius); font-size: 13px; font-weight: 500; cursor: pointer; border: none; text-decoration: none; transition: all .15s; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #3a7de8; }
+  .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-danger  { background: transparent; border: 1px solid var(--red); color: var(--red); }
+  .btn-danger:hover { background: var(--red); color: #fff; }
+  .btn-sm      { padding: 5px 11px; font-size: 12px; }
+  .btn-green   { background: var(--green); color: #0a1f12; }
+
+  /* ── Forms ── */
+  .form-grid   { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .form-group  { display: flex; flex-direction: column; gap: 5px; }
+  .form-group.full { grid-column: 1 / -1; }
+  label        { font-size: 12px; font-weight: 500; color: var(--muted); }
+  input, select, textarea {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius);
+    color: var(--text); font-family: var(--sans); font-size: 13px; padding: 9px 12px; width: 100%;
+    transition: border-color .15s;
+  }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+  textarea     { resize: vertical; min-height: 80px; }
+
+  /* ── Alert / Flash ── */
+  .flash       { padding: 10px 16px; border-radius: var(--radius); margin-bottom: 16px; font-size: 13px; }
+  .flash-success { background: #0f2e1a; border: 1px solid #1a5030; color: var(--green); }
+  .flash-info    { background: #1a2540; border: 1px solid #2a3f70; color: var(--accent); }
+  .flash-error   { background: #2e1515; border: 1px solid #5a2020; color: var(--red); }
+
+  /* ── Bar Chart ── */
+  .bar-chart   { display: flex; flex-direction: column; gap: 8px; }
+  .bar-row     { display: flex; align-items: center; gap: 10px; }
+  .bar-label   { font-size: 12px; color: var(--muted); width: 160px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar-track   { flex: 1; height: 8px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
+  .bar-fill    { height: 100%; border-radius: 4px; background: var(--accent); transition: width .6s; }
+  .bar-fill.green  { background: var(--green); }
+  .bar-fill.purple { background: var(--accent2); }
+  .bar-val     { font-family: var(--mono); font-size: 12px; color: var(--text); width: 90px; text-align: right; flex-shrink: 0; }
+
+  /* ── Sparkline ── */
+  .sparkline-container { margin-top: 12px; }
+
+  /* ── Misc ── */
+  .text-mono   { font-family: var(--mono); }
+  .text-muted  { color: var(--muted); }
+  .text-green  { color: var(--green); }
+  .text-red    { color: var(--red); }
+  .text-yellow { color: var(--yellow); }
+  .text-accent { color: var(--accent); }
+  .grid-2      { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .grid-3      { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+  .mb-16       { margin-bottom: 16px; }
+  .mb-24       { margin-bottom: 24px; }
+  .flex-between{ display: flex; justify-content: space-between; align-items: center; }
+  .gap-8       { gap: 8px; }
+  .actions     { display: flex; gap: 8px; align-items: center; }
+
+  @media(max-width:900px){
+    .sidebar { width: 60px; }
+    .logo-name,.logo-sub,nav a span,.section-label { display: none; }
+    .main { margin-left: 60px; padding: 16px; }
+    .form-grid,.grid-2,.grid-3 { grid-template-columns: 1fr; }
+  }
+</style>
+{% block extra_head %}{% endblock %}
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-name">⚡ BillFlow</div>
+      <div class="logo-sub">E-Billing System</div>
+    </div>
+    <nav>
+      <div class="section-label">Overview</div>
+      <a href="/" {% if request.path=='/' %}class="active"{% endif %}>
+        <span>▣</span><span>Dashboard</span>
+      </a>
+      <a href="/analytics" {% if request.path=='/analytics' %}class="active"{% endif %}>
+        <span>◈</span><span>Analytics</span>
+      </a>
+
+      <div class="section-label">Billing</div>
+      <a href="/invoices/create" {% if '/invoices/create' in request.path %}class="active"{% endif %}>
+        <span>＋</span><span>New Invoice</span>
+      </a>
+      <a href="/invoices" {% if request.path=='/invoices' %}class="active"{% endif %}>
+        <span>≡</span><span>Invoices</span>
+      </a>
+
+      <div class="section-label">Master Data</div>
+      <a href="/customers" {% if request.path=='/customers' %}class="active"{% endif %}>
+        <span>◎</span><span>Customers</span>
+      </a>
+      <a href="/products" {% if request.path=='/products' %}class="active"{% endif %}>
+        <span>◫</span><span>Products</span>
+      </a>
+
+      <div class="section-label">Exports</div>
+      <a href="/export/invoices"><span>↓</span><span>Invoice CSV</span></a>
+      <a href="/export/products"><span>↓</span><span>Products CSV</span></a>
+      <a href="/export/customers"><span>↓</span><span>Customers CSV</span></a>
+      <a href="/export/gst"><span>↓</span><span>GST Report</span></a>
+
+      <div class="section-label">Config</div>
+      <a href="/settings" {% if request.path=='/settings' %}class="active"{% endif %}>
+        <span>⚙</span><span>Settings</span>
+      </a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for cat, msg in messages %}
+        <div class="flash flash-{{ cat }}">{{ msg }}</div>
+      {% endfor %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+{% block scripts %}{% endblock %}
+</body>
+</html>

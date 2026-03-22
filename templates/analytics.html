@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+{% block title %}Analytics — E-Billing{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">Business Analytics</div>
+    <div class="page-sub">SQL-driven KPIs, trends, and insights</div>
+  </div>
+  <div class="actions">
+    <a href="/export/invoices"  class="btn btn-outline btn-sm">↓ Invoices CSV</a>
+    <a href="/export/products"  class="btn btn-outline btn-sm">↓ Products CSV</a>
+    <a href="/export/customers" class="btn btn-outline btn-sm">↓ Customers CSV</a>
+    <a href="/export/gst"       class="btn btn-outline btn-sm">↓ GST Report</a>
+  </div>
+</div>
+
+<!-- KPI Strip -->
+<div class="kpi-grid mb-24">
+  <div class="kpi-card">
+    <div class="kpi-label">Total Revenue</div>
+    <div class="kpi-value text-green">{{ cfg.currency_symbol }}{{ "{:,.0f}".format(kpi.total_revenue or 0) }}</div>
+    <div class="kpi-change neutral">All time (paid + sent)</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Total Invoices</div>
+    <div class="kpi-value">{{ kpi.total_invoices or 0 }}</div>
+    <div class="kpi-change neutral">Across all status</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">ARPU</div>
+    <div class="kpi-value">{{ cfg.currency_symbol }}{{ "{:,.0f}".format(kpi.arpu or 0) }}</div>
+    <div class="kpi-change neutral">Avg Revenue Per User</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Avg Order Value</div>
+    <div class="kpi-value">{{ cfg.currency_symbol }}{{ "{:,.0f}".format(kpi.avg_invoice_value or 0) }}</div>
+    <div class="kpi-change neutral">Per invoice</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Repeat Rate</div>
+    <div class="kpi-value {% if (kpi.repeat_rate_pct or 0) > 40 %}text-green{% else %}text-yellow{% endif %}">
+      {{ kpi.repeat_rate_pct or 0 }}%
+    </div>
+    <div class="kpi-change neutral">{{ kpi.repeat_count or 0 }} returning</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">MoM Growth</div>
+    <div class="kpi-value {% if (kpi.mom_growth_pct or 0) >= 0 %}text-green{% else %}text-red{% endif %}">
+      {{ (kpi.mom_growth_pct or 0)|round(1) }}%
+    </div>
+    <div class="kpi-change neutral">vs previous month</div>
+  </div>
+</div>
+
+<!-- Revenue Trend + Category -->
+<div class="grid-2 mb-24">
+  <div class="card">
+    <div class="card-title">Monthly Revenue (6M)</div>
+    {% if trend %}
+    <div class="bar-chart">
+      {% set max_rev = trend | map(attribute='net_revenue') | max %}
+      {% for row in trend %}
+      <div class="bar-row">
+        <div class="bar-label">{{ row.label }}</div>
+        <div class="bar-track">
+          <div class="bar-fill" style="width:{{ (row.net_revenue / max_rev * 100)|round }}%"></div>
+        </div>
+        <div class="bar-val">{{ cfg.currency_symbol }}{{ "{:,.0f}".format(row.net_revenue) }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    <!-- MoM growth table -->
+    <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px">
+      <table style="font-size:12px">
+        <thead><tr><th>Month</th><th>Revenue</th><th>Invoices</th><th>MoM Δ</th></tr></thead>
+        <tbody>
+        {% for row in trend %}
+        <tr>
+          <td>{{ row.label }}</td>
+          <td class="text-mono">{{ cfg.currency_symbol }}{{ "{:,.0f}".format(row.net_revenue) }}</td>
+          <td class="text-mono">{{ row.invoices }}</td>
+          <td class="text-mono {% if row.mom_growth and row.mom_growth >= 0 %}text-green{% elif row.mom_growth %}text-red{% endif %}">
+            {{ ("▲ " if row.mom_growth and row.mom_growth >= 0 else "▼ ") + (row.mom_growth|abs|string + "%") if row.mom_growth is not none and row.mom_growth != "" else "—" }}
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="card-title">Revenue by Category</div>
+    {% if categories %}
+    <div class="bar-chart">
+      {% set max_cat = categories | map(attribute='revenue') | max %}
+      {% for c in categories %}
+      <div class="bar-row">
+        <div class="bar-label">{{ c.category or 'Uncategorised' }}</div>
+        <div class="bar-track">
+          <div class="bar-fill purple" style="width:{{ (c.revenue / max_cat * 100)|round }}%"></div>
+        </div>
+        <div class="bar-val">{{ c.share_pct }}%</div>
+      </div>
+      {% endfor %}
+    </div>
+    <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px">
+      <table style="font-size:12px">
+        <thead><tr><th>Category</th><th>Invoices</th><th>Revenue</th><th>Share</th></tr></thead>
+        <tbody>
+        {% for c in categories %}
+        <tr>
+          <td>{{ c.category or '—' }}</td>
+          <td class="text-mono">{{ c.invoice_count }}</td>
+          <td class="text-mono">{{ cfg.currency_symbol }}{{ "{:,.0f}".format(c.revenue) }}</td>
+          <td class="text-mono text-accent">{{ c.share_pct }}%</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Top Products Table -->
+<div class="card mb-24">
+  <div class="flex-between mb-16">
+    <div class="card-title" style="margin-bottom:0">Product Performance</div>
+    <a href="/export/products" class="btn btn-outline btn-sm">↓ Export</a>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th><th>Product</th><th>Category</th>
+          <th>Invoices</th><th>Qty Sold</th>
+          <th>Revenue</th><th>Avg Price</th><th>Share</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for i, p in top_products | enumerate(start=1) %}
+      <tr>
+        <td class="text-muted text-mono">{{ i }}</td>
+        <td><strong>{{ p.product }}</strong></td>
+        <td><span class="text-muted">{{ p.category }}</span></td>
+        <td class="text-mono">{{ p.invoice_count }}</td>
+        <td class="text-mono">{{ p.total_qty|round(1) }}</td>
+        <td class="text-mono text-green">{{ cfg.currency_symbol }}{{ "{:,.0f}".format(p.total_revenue) }}</td>
+        <td class="text-mono">{{ cfg.currency_symbol }}{{ "{:,.0f}".format(p.avg_price) }}</td>
+        <td class="text-mono text-accent">{{ p.revenue_share_pct or 0 }}%</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Customer Segments + Top Customers -->
+<div class="grid-2 mb-24">
+  <div class="card">
+    <div class="card-title">Customer Segmentation (RFM)</div>
+    {% if seg_summary %}
+    <div class="bar-chart mb-16">
+      {% set max_seg = seg_summary | map(attribute='total_revenue') | max %}
+      {% for s in seg_summary %}
+      <div class="bar-row">
+        <div class="bar-label">
+          <span class="badge badge-{{ s.segment|lower|replace('-','') }}">{{ s.segment }}</span>
+        </div>
+        <div class="bar-track">
+          <div class="bar-fill" style="width:{{ (s.total_revenue/max_seg*100)|round }}%;background:{% if s.segment=='VIP' %}var(--accent2){% elif s.segment=='Loyal' %}var(--accent){% elif s.segment=='Returning' %}var(--green){% else %}var(--muted){% endif %}"></div>
+        </div>
+        <div class="bar-val">{{ s.customers }} cust.</div>
+      </div>
+      {% endfor %}
+    </div>
+    <table style="font-size:12px">
+      <thead><tr><th>Segment</th><th>Customers</th><th>Total Revenue</th></tr></thead>
+      <tbody>
+      {% for s in seg_summary %}
+      <tr>
+        <td><span class="badge badge-{{ s.segment|lower|replace('-','') }}">{{ s.segment }}</span></td>
+        <td class="text-mono">{{ s.customers }}</td>
+        <td class="text-mono">{{ cfg.currency_symbol }}{{ "{:,.0f}".format(s.total_revenue) }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="card-title">Top Customers by LTV</div>
+    <div class="table-wrap">
+      <table style="font-size:12px">
+        <thead><tr><th>Customer</th><th>City</th><th>Inv.</th><th>LTV</th></tr></thead>
+        <tbody>
+        {% for c in top_customers %}
+        <tr>
+          <td><strong>{{ c.name }}</strong></td>
+          <td class="text-muted">{{ c.city }}</td>
+          <td class="text-mono">{{ c.invoices }}</td>
+          <td class="text-mono text-green">{{ cfg.currency_symbol }}{{ "{:,.0f}".format(c.lifetime_value) }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- GST Summary -->
+<div class="card mb-24">
+  <div class="flex-between mb-16">
+    <div class="card-title" style="margin-bottom:0">GST Liability Summary</div>
+    <a href="/export/gst" class="btn btn-outline btn-sm">↓ GST Report</a>
+  </div>
+  {% if gst_summary %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Period</th><th>Supply Type</th><th>Invoices</th>
+          <th>Taxable Value</th><th>CGST</th><th>SGST</th><th>IGST</th><th>Total GST</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for g in gst_summary %}
+      <tr>
+        <td class="text-mono">{{ g.period }}</td>
+        <td><span class="badge badge-{{ 'sent' if g.supply_type=='intra' else 'vip' }}">{{ g.supply_type|upper }}</span></td>
+        <td class="text-mono">{{ g.invoices }}</td>
+        <td class="text-mono">{{ cfg.currency_symbol }}{{ "{:,.0f}".format(g.taxable_value) }}</td>
+        <td class="text-mono">{{ cfg.currency_symbol }}{{ "{:,.0f}".format(g.cgst or 0) }}</td>
+        <td class="text-mono">{{ cfg.currency_symbol }}{{ "{:,.0f}".format(g.sgst or 0) }}</td>
+        <td class="text-mono">{{ cfg.currency_symbol }}{{ "{:,.0f}".format(g.igst or 0) }}</td>
+        <td class="text-mono text-yellow"><strong>{{ cfg.currency_symbol }}{{ "{:,.0f}".format(g.total_gst) }}</strong></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Outstanding Receivables -->
+{% if overdue %}
+<div class="card">
+  <div class="card-title">⚠ Outstanding Receivables</div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Invoice</th><th>Customer</th><th>Invoice Date</th><th>Due Date</th><th>Amount</th><th>Status</th><th>Days Overdue</th></tr></thead>
+      <tbody>
+      {% for r in overdue %}
+      <tr>
+        <td class="text-mono text-accent">{{ r.invoice_number }}</td>
+        <td>{{ r.customer }}</td>
+        <td class="text-muted text-mono">{{ r.invoice_date }}</td>
+        <td class="text-mono">{{ r.due_date }}</td>
+        <td class="text-mono text-yellow">{{ cfg.currency_symbol }}{{ "{:,.0f}".format(r.total_amount) }}</td>
+        <td><span class="badge badge-{{ r.status }}">{{ r.status }}</span></td>
+        <td class="text-mono {% if r.days_overdue and r.days_overdue > 0 %}text-red{% else %}text-muted{% endif %}">
+          {{ r.days_overdue if r.days_overdue else '—' }}
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Make enumerate work in Jinja2 — handled via custom filter in app.py
+</script>
+{% endblock %}

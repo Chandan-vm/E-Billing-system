@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% block title %}Create Invoice — E-Billing{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">Create Invoice</div>
+    <div class="page-sub">{{ inv_num }}</div>
+  </div>
+</div>
+
+<form method="POST" action="/invoices/create" id="invoiceForm">
+
+  <!-- Invoice Header -->
+  <div class="card mb-24">
+    <div class="card-title">Invoice Details</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Customer *</label>
+        <select name="customer_id" required>
+          <option value="">— Select Customer —</option>
+          {% for c in customers %}
+          <option value="{{ c.id }}">{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Supply Type</label>
+        <select name="supply_type">
+          <option value="intra">Intra-State (CGST + SGST)</option>
+          <option value="inter">Inter-State (IGST)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Invoice Date</label>
+        <input type="date" name="invoice_date" value="{{ today }}" required/>
+      </div>
+      <div class="form-group">
+        <label>Due Date</label>
+        <input type="date" name="due_date" value="{{ due }}"/>
+      </div>
+      <div class="form-group full">
+        <label>Notes</label>
+        <textarea name="notes" placeholder="Payment terms, special instructions..."></textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- Line Items -->
+  <div class="card mb-24">
+    <div class="flex-between mb-16">
+      <div class="card-title" style="margin-bottom:0">Line Items</div>
+      <button type="button" class="btn btn-outline btn-sm" onclick="addRow()">＋ Add Item</button>
+    </div>
+
+    <div class="table-wrap">
+      <table id="itemsTable">
+        <thead>
+          <tr>
+            <th style="width:28%">Product / Service</th>
+            <th style="width:24%">Description</th>
+            <th style="width:9%">Qty</th>
+            <th style="width:12%">Unit Price</th>
+            <th style="width:9%">Tax %</th>
+            <th style="width:12%">Total</th>
+            <th style="width:6%"></th>
+          </tr>
+        </thead>
+        <tbody id="itemsBody">
+          <!-- rows added by JS -->
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Totals -->
+    <div style="display:flex;justify-content:flex-end;margin-top:20px">
+      <div style="width:300px">
+        <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border)">
+          <span class="text-muted">Subtotal</span>
+          <span class="text-mono" id="sumSubtotal">{{ cfg.currency_symbol }}0.00</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border)">
+          <span class="text-muted">Tax</span>
+          <span class="text-mono" id="sumTax">{{ cfg.currency_symbol }}0.00</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:10px 0;font-size:16px;font-weight:600">
+          <span>Total</span>
+          <span class="text-mono text-green" id="sumTotal">{{ cfg.currency_symbol }}0.00</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div style="display:flex;gap:12px">
+    <button type="submit" name="action" value="draft" class="btn btn-outline">Save as Draft</button>
+    <button type="submit" name="action" value="send"  class="btn btn-primary">Create & Send</button>
+    <a href="/invoices" class="btn btn-outline">Cancel</a>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const PRODUCTS = {{ products | tojson }};
+const SYM = "{{ cfg.currency_symbol }}";
+
+function addRow(p) {
+  const tbody = document.getElementById('itemsBody');
+  const idx   = tbody.rows.length;
+  const tr = document.createElement('tr');
+
+  const prodOpts = PRODUCTS.map(x =>
+    `<option value="${x.id}" data-price="${x.unit_price}" data-tax="${x.tax_rate}" ${p && p.id==x.id?'selected':''}>${x.name}</option>`
+  ).join('');
+
+  tr.innerHTML = `
+    <td>
+      <select name="product_id[]" onchange="fillFromProduct(this)">
+        <option value="">— Custom —</option>
+        ${prodOpts}
+      </select>
+    </td>
+    <td><input name="description[]" placeholder="Description" required ${p?`value="${p.name}"`:''}/></td>
+    <td><input name="quantity[]"    type="number" step="0.01" min="0.01" value="${p?1:1}" oninput="recalcRow(this)" style="width:70px"/></td>
+    <td><input name="unit_price[]"  type="number" step="0.01" min="0"    value="${p?p.unit_price:0}" oninput="recalcRow(this)" style="width:90px"/></td>
+    <td><input name="tax_rate[]"    type="number" step="0.01" min="0" max="100" value="${p?p.tax_rate:18}" oninput="recalcRow(this)" style="width:60px"/></td>
+    <td><span class="row-total text-mono text-green">${SYM}0.00</span></td>
+    <td><button type="button" onclick="this.closest('tr').remove(); recalcAll()" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:16px">×</button></td>
+  `;
+  tbody.appendChild(tr);
+  recalcRow(tr.querySelector('[name="quantity[]"]'));
+}
+
+function fillFromProduct(sel) {
+  const opt = sel.options[sel.selectedIndex];
+  const row = sel.closest('tr');
+  if (opt.value) {
+    const price = parseFloat(opt.dataset.price)||0;
+    const tax   = parseFloat(opt.dataset.tax)||18;
+    row.querySelector('[name="description[]"]').value  = opt.text;
+    row.querySelector('[name="unit_price[]"]').value   = price;
+    row.querySelector('[name="tax_rate[]"]').value     = tax;
+    recalcRow(row.querySelector('[name="quantity[]"]'));
+  }
+}
+
+function recalcRow(input) {
+  const row  = input.closest('tr');
+  const qty  = parseFloat(row.querySelector('[name="quantity[]"]').value)||0;
+  const price= parseFloat(row.querySelector('[name="unit_price[]"]').value)||0;
+  const tax  = parseFloat(row.querySelector('[name="tax_rate[]"]').value)||0;
+  const sub  = qty * price;
+  const total= sub + sub * tax/100;
+  row.querySelector('.row-total').textContent = SYM + total.toFixed(2);
+  recalcAll();
+}
+
+function recalcAll() {
+  const rows = document.querySelectorAll('#itemsBody tr');
+  let sub=0, tax=0;
+  rows.forEach(row => {
+    const qty  = parseFloat(row.querySelector('[name="quantity[]"]').value)||0;
+    const price= parseFloat(row.querySelector('[name="unit_price[]"]').value)||0;
+    const rate = parseFloat(row.querySelector('[name="tax_rate[]"]').value)||0;
+    const ls   = qty * price;
+    sub += ls;
+    tax += ls * rate/100;
+  });
+  document.getElementById('sumSubtotal').textContent = SYM + sub.toFixed(2);
+  document.getElementById('sumTax').textContent      = SYM + tax.toFixed(2);
+  document.getElementById('sumTotal').textContent    = SYM + (sub+tax).toFixed(2);
+}
+
+// Start with 1 empty row
+addRow();
+</script>
+{% endblock %}
