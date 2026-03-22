@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Daily Sales Summary{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><div class="page-title">📊 Daily Sales Summary</div><div class="page-sub">{{ today }}</div></div>
+  <a href="/billing" class="btn btn-primary">← Back to Counter</a>
+</div>
+
+<div class="kpi-grid mb-24">
+  <div class="kpi-card">
+    <div class="kpi-label">Today's Revenue</div>
+    <div class="kpi-value text-green">{{ cfg.currency_symbol }}{{ "{:,.2f}".format(summary.revenue or 0) }}</div>
+    <div class="kpi-change neutral">incl. GST</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Bills Generated</div>
+    <div class="kpi-value">{{ summary.bills or 0 }}</div>
+    <div class="kpi-change neutral">walk-in bills today</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Items Sold</div>
+    <div class="kpi-value">{{ summary.items or 0 }}</div>
+    <div class="kpi-change neutral">total qty</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Avg Bill Value</div>
+    <div class="kpi-value">{{ cfg.currency_symbol }}{{ "{:,.2f}".format(summary.avg_bill or 0) }}</div>
+    <div class="kpi-change neutral">per transaction</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">GST Collected</div>
+    <div class="kpi-value text-yellow">{{ cfg.currency_symbol }}{{ "{:,.2f}".format(summary.gst or 0) }}</div>
+    <div class="kpi-change neutral">today</div>
+  </div>
+</div>
+
+<div class="grid-2 mb-24">
+  <div class="card">
+    <div class="card-title">Today's Bills</div>
+    {% if bills %}
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Bill #</th><th>Time</th><th>Items</th><th style="text-align:right">Total</th><th>Note</th></tr></thead>
+        <tbody>
+        {% for b in bills %}
+        <tr>
+          <td class="text-mono text-accent">{{ b.invoice_number }}</td>
+          <td class="text-muted text-mono" style="font-size:12px">{{ b.created_at[11:16] if b.created_at else '—' }}</td>
+          <td class="text-mono">{{ b.item_count }}</td>
+          <td class="text-mono text-green" style="text-align:right"><strong>{{ cfg.currency_symbol }}{{ "{:,.2f}".format(b.total_amount) }}</strong></td>
+          <td class="text-muted" style="font-size:12px">{{ b.notes or '—' }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:32px;color:var(--muted)">No bills generated today yet.</div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="card-title">Top Items Sold Today</div>
+    {% if top_items %}
+    <div class="bar-chart">
+      {% set max_qty = top_items[0].qty %}
+      {% for item in top_items %}
+      <div class="bar-row">
+        <div class="bar-label">{{ item.name }}</div>
+        <div class="bar-track"><div class="bar-fill green" style="width:{{ (item.qty/max_qty*100)|round }}%"></div></div>
+        <div class="bar-val">{{ item.qty }} {{ item.unit }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:32px;color:var(--muted)">No sales data yet.</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

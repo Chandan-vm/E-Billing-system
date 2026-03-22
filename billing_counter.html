@@ -1,0 +1,332 @@
+{% extends "base.html" %}
+{% block title %}Billing Counter — {{ cfg.business_name }}{% endblock %}
+
+{% block extra_head %}
+<style>
+  .counter-layout { display: grid; grid-template-columns: 1fr 380px; gap: 20px; height: calc(100vh - 120px); }
+  .items-panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); display: flex; flex-direction: column; overflow: hidden; }
+  .cart-panel  { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); display: flex; flex-direction: column; overflow: hidden; }
+  .panel-head  { padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+  .panel-title { font-size: 13px; font-weight: 600; color: var(--text); text-transform: uppercase; letter-spacing: .8px; }
+  .search-box  { padding: 12px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .search-input{ width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-size: 14px; padding: 10px 14px; }
+  .search-input:focus { outline: none; border-color: var(--accent); }
+  .cat-tabs    { display: flex; gap: 6px; padding: 10px 16px; flex-wrap: wrap; border-bottom: 1px solid var(--border); flex-shrink: 0; overflow-x: auto; }
+  .cat-tab     { padding: 4px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; border: 1px solid var(--border); color: var(--muted); background: transparent; white-space: nowrap; }
+  .cat-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .items-grid  { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; padding: 14px; overflow-y: auto; flex: 1; }
+  .item-card   { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; cursor: pointer; transition: all .15s; }
+  .item-card:hover { border-color: var(--accent); background: #1a2540; }
+  .item-card.in-cart { border-color: var(--green); background: #0f1f14; }
+  .item-name   { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 4px; line-height: 1.3; }
+  .item-meta   { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; }
+  .item-price  { font-family: var(--mono); font-size: 13px; color: var(--green); font-weight: 600; }
+  .item-unit   { font-size: 10px; color: var(--muted); }
+  .item-gst    { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .item-qty-ctrl { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+  .qty-btn     { width: 22px; height: 22px; border-radius: 4px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+  .qty-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .qty-val     { font-family: var(--mono); font-size: 13px; color: var(--text); min-width: 24px; text-align: center; }
+  .add-btn     { width: 100%; padding: 5px; border-radius: 4px; border: 1px solid var(--accent); background: transparent; color: var(--accent); font-size: 12px; cursor: pointer; margin-top: 8px; }
+  .add-btn:hover { background: var(--accent); color: #fff; }
+  /* Cart */
+  .cart-items  { flex: 1; overflow-y: auto; padding: 10px 14px; }
+  .cart-row    { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .cart-row:last-child { border-bottom: none; }
+  .cart-name   { flex: 1; font-size: 12px; color: var(--text); }
+  .cart-qty-ctrl { display: flex; align-items: center; gap: 4px; }
+  .cart-qty-btn{ width: 20px; height: 20px; border-radius: 3px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center; }
+  .cart-qty-val{ font-family: var(--mono); font-size: 12px; min-width: 20px; text-align: center; }
+  .cart-total  { font-family: var(--mono); font-size: 12px; color: var(--green); min-width: 60px; text-align: right; }
+  .cart-del    { color: var(--red); cursor: pointer; font-size: 14px; padding: 2px 4px; background: none; border: none; }
+  .cart-empty  { text-align: center; padding: 40px 20px; color: var(--muted); font-size: 13px; }
+  /* Bill summary */
+  .bill-summary{ padding: 12px 14px; border-top: 1px solid var(--border); flex-shrink: 0; }
+  .bill-row    { display: flex; justify-content: space-between; font-size: 12px; padding: 3px 0; }
+  .bill-total  { display: flex; justify-content: space-between; font-size: 16px; font-weight: 600; padding: 8px 0 0; border-top: 1px solid var(--border); margin-top: 4px; }
+  .bill-actions{ display: flex; gap: 8px; margin-top: 12px; }
+  .bill-note   { padding: 8px 14px; border-top: 1px solid var(--border); }
+  .bill-note input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-size: 12px; padding: 7px 10px; }
+  .bill-note input:focus { outline: none; border-color: var(--accent); }
+  /* Bill number badge */
+  .bill-num-badge { font-family: var(--mono); font-size: 11px; color: var(--accent); background: #1a2540; padding: 3px 8px; border-radius: 10px; border: 1px solid #2a3f70; }
+  /* Print styles */
+  @media print {
+    .sidebar,.items-panel,.page-header,.bill-actions,.bill-note,.cat-tabs,.search-box { display: none !important; }
+    .main { margin: 0 !important; padding: 0 !important; }
+    .counter-layout { display: block; height: auto; }
+    .cart-panel { border: none; height: auto; }
+    #printBill { display: block !important; }
+  }
+  /* Print receipt */
+  #printBill { display: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">🛒 Billing Counter</div>
+    <div class="page-sub">Walk-in | Quick billing | No customer name required</div>
+  </div>
+  <div class="actions">
+    <span class="bill-num-badge" id="billNumBadge">Bill #{{ bill_num }}</span>
+    <a href="/billing/daily-summary" class="btn btn-outline btn-sm">📊 Daily Summary</a>
+  </div>
+</div>
+
+<div class="counter-layout">
+
+  <!-- LEFT: Items Panel -->
+  <div class="items-panel">
+    <div class="panel-head">
+      <span class="panel-title">Products</span>
+      <span style="font-size:11px;color:var(--muted)" id="itemCount">{{ products|length }} items</span>
+    </div>
+    <div class="search-box">
+      <input class="search-input" type="text" id="searchBox" placeholder="🔍  Search items — rice, oil, soap..." oninput="filterItems(this.value)" autofocus/>
+    </div>
+    <div class="cat-tabs" id="catTabs">
+      <button class="cat-tab active" onclick="filterCat('all',this)">All</button>
+      {% for cat in categories %}
+      <button class="cat-tab" onclick="filterCat('{{ cat }}',this)">{{ cat }}</button>
+      {% endfor %}
+    </div>
+    <div class="items-grid" id="itemsGrid">
+      {% for p in products %}
+      <div class="item-card" id="card-{{ p.id }}" data-id="{{ p.id }}" data-name="{{ p.name }}" data-price="{{ p.unit_price }}" data-unit="{{ p.unit }}" data-tax="{{ p.tax_rate }}" data-cat="{{ p.category }}" onclick="addToCart({{ p.id }})">
+        <div class="item-name">{{ p.name }}</div>
+        <div class="item-gst">GST {{ p.tax_rate|int }}% · {{ p.category }}</div>
+        <div class="item-meta">
+          <span class="item-price">₹{{ "%.2f"|format(p.unit_price) }}</span>
+          <span class="item-unit">/ {{ p.unit }}</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- RIGHT: Cart Panel -->
+  <div class="cart-panel">
+    <div class="panel-head">
+      <span class="panel-title">Current Bill</span>
+      <button onclick="clearCart()" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:12px">✕ Clear</button>
+    </div>
+
+    <div class="cart-items" id="cartItems">
+      <div class="cart-empty" id="cartEmpty">
+        <div style="font-size:28px;margin-bottom:8px">🛒</div>
+        Click items to add them here
+      </div>
+    </div>
+
+    <div class="bill-note">
+      <input type="text" id="billNote" placeholder="Note (optional — e.g. Table 3, Home delivery)"/>
+    </div>
+
+    <div class="bill-summary" id="billSummary" style="display:none">
+      <div class="bill-row"><span style="color:var(--muted)">Subtotal</span><span class="text-mono" id="sumSubtotal">₹0.00</span></div>
+      <div class="bill-row"><span style="color:var(--muted)">GST</span><span class="text-mono" id="sumGST">₹0.00</span></div>
+      <div class="bill-total">
+        <span>Total</span>
+        <span class="text-mono text-green" id="sumTotal">₹0.00</span>
+      </div>
+      <div class="bill-row" style="margin-top:6px"><span style="color:var(--muted)">Items</span><span class="text-mono" id="sumItems">0</span></div>
+    </div>
+
+    <div class="bill-actions" style="padding:0 14px 14px">
+      <button onclick="printBill()" class="btn btn-outline" style="flex:1" id="btnPrint" disabled>🖨 Print</button>
+      <button onclick="saveBill()" class="btn btn-primary" style="flex:1" id="btnSave" disabled>✓ Save Bill</button>
+    </div>
+  </div>
+</div>
+
+<!-- Hidden Print Receipt -->
+<div id="printBill">
+  <div style="text-align:center;margin-bottom:12px">
+    <div style="font-size:18px;font-weight:700">{{ cfg.business_name }}</div>
+    <div style="font-size:12px">{{ cfg.business_address }}</div>
+    <div style="font-size:12px">GSTIN: {{ cfg.business_gstin }}</div>
+    <div style="border-top:1px dashed #000;margin:8px 0"></div>
+    <div style="font-size:12px" id="rBillNum"></div>
+    <div style="font-size:11px" id="rDate"></div>
+  </div>
+  <table style="width:100%;font-size:12px;border-collapse:collapse" id="rItems"></table>
+  <div style="border-top:1px dashed #000;margin:8px 0"></div>
+  <div style="display:flex;justify-content:space-between;font-size:12px"><span>Subtotal</span><span id="rSubtotal"></span></div>
+  <div style="display:flex;justify-content:space-between;font-size:12px"><span>GST</span><span id="rGST"></span></div>
+  <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:700;margin-top:4px"><span>TOTAL</span><span id="rTotal"></span></div>
+  <div style="text-align:center;margin-top:12px;font-size:11px" id="rNote"></div>
+  <div style="text-align:center;margin-top:8px;font-size:11px">Thank you for shopping with us! 🙏</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const SYM = "₹";
+let cart = {}; // { id: {name, price, qty, tax, unit} }
+let currentCat = 'all';
+let billNum = "{{ bill_num }}";
+
+function addToCart(id) {
+  const card = document.getElementById('card-' + id);
+  const name  = card.dataset.name;
+  const price = parseFloat(card.dataset.price);
+  const tax   = parseFloat(card.dataset.tax);
+  const unit  = card.dataset.unit;
+
+  if (cart[id]) {
+    cart[id].qty += 1;
+  } else {
+    cart[id] = { name, price, qty: 1, tax, unit };
+  }
+  card.classList.add('in-cart');
+  renderCart();
+}
+
+function changeQty(id, delta) {
+  if (!cart[id]) return;
+  cart[id].qty += delta;
+  if (cart[id].qty <= 0) {
+    delete cart[id];
+    document.getElementById('card-' + id)?.classList.remove('in-cart');
+  }
+  renderCart();
+}
+
+function removeFromCart(id) {
+  delete cart[id];
+  document.getElementById('card-' + id)?.classList.remove('in-cart');
+  renderCart();
+}
+
+function clearCart() {
+  Object.keys(cart).forEach(id => {
+    document.getElementById('card-' + id)?.classList.remove('in-cart');
+  });
+  cart = {};
+  renderCart();
+}
+
+function renderCart() {
+  const el = document.getElementById('cartItems');
+  const empty = document.getElementById('cartEmpty');
+  const summary = document.getElementById('billSummary');
+  const btnP = document.getElementById('btnPrint');
+  const btnS = document.getElementById('btnSave');
+  const ids = Object.keys(cart);
+
+  if (ids.length === 0) {
+    el.innerHTML = '<div class="cart-empty" id="cartEmpty"><div style="font-size:28px;margin-bottom:8px">🛒</div>Click items to add them here</div>';
+    summary.style.display = 'none';
+    btnP.disabled = true; btnS.disabled = true;
+    return;
+  }
+
+  let html = '';
+  let subtotal = 0, totalTax = 0, totalItems = 0;
+
+  ids.forEach(id => {
+    const item = cart[id];
+    const lineSub  = item.price * item.qty;
+    const lineTax  = lineSub * item.tax / 100;
+    const lineTotal = lineSub + lineTax;
+    subtotal   += lineSub;
+    totalTax   += lineTax;
+    totalItems += item.qty;
+    html += `<div class="cart-row">
+      <div class="cart-name">${item.name}<br><span style="font-size:10px;color:var(--muted)">₹${item.price}/${item.unit} · GST ${item.tax}%</span></div>
+      <div class="cart-qty-ctrl">
+        <button class="cart-qty-btn" onclick="changeQty(${id},-1)">−</button>
+        <span class="cart-qty-val">${item.qty}</span>
+        <button class="cart-qty-btn" onclick="changeQty(${id},1)">+</button>
+      </div>
+      <div class="cart-total">${SYM}${lineTotal.toFixed(2)}</div>
+      <button class="cart-del" onclick="removeFromCart(${id})">✕</button>
+    </div>`;
+  });
+
+  el.innerHTML = html;
+  summary.style.display = 'block';
+  btnP.disabled = false; btnS.disabled = false;
+
+  document.getElementById('sumSubtotal').textContent = SYM + subtotal.toFixed(2);
+  document.getElementById('sumGST').textContent      = SYM + totalTax.toFixed(2);
+  document.getElementById('sumTotal').textContent    = SYM + (subtotal + totalTax).toFixed(2);
+  document.getElementById('sumItems').textContent    = totalItems + ' items';
+}
+
+function filterCat(cat, btn) {
+  currentCat = cat;
+  document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  filterItems(document.getElementById('searchBox').value);
+}
+
+function filterItems(query) {
+  const q = query.toLowerCase();
+  let visible = 0;
+  document.querySelectorAll('.item-card').forEach(card => {
+    const matchCat   = currentCat === 'all' || card.dataset.cat === currentCat;
+    const matchQuery = !q || card.dataset.name.toLowerCase().includes(q);
+    card.style.display = (matchCat && matchQuery) ? '' : 'none';
+    if (matchCat && matchQuery) visible++;
+  });
+  document.getElementById('itemCount').textContent = visible + ' items';
+}
+
+function printBill() {
+  const ids = Object.keys(cart);
+  if (!ids.length) return;
+  let rows = '<tr style="border-bottom:1px solid #000"><th style="text-align:left">Item</th><th>Qty</th><th>Rate</th><th style="text-align:right">Amt</th></tr>';
+  let subtotal = 0, tax = 0;
+  ids.forEach(id => {
+    const item = cart[id];
+    const sub  = item.price * item.qty;
+    const t    = sub * item.tax / 100;
+    subtotal += sub; tax += t;
+    rows += `<tr><td>${item.name}</td><td style="text-align:center">${item.qty}</td><td style="text-align:center">₹${item.price}</td><td style="text-align:right">₹${(sub+t).toFixed(2)}</td></tr>`;
+  });
+  document.getElementById('rItems').innerHTML = rows;
+  document.getElementById('rBillNum').textContent = 'Bill #' + billNum;
+  document.getElementById('rDate').textContent    = new Date().toLocaleString('en-IN');
+  document.getElementById('rSubtotal').textContent = '₹' + subtotal.toFixed(2);
+  document.getElementById('rGST').textContent      = '₹' + tax.toFixed(2);
+  document.getElementById('rTotal').textContent    = '₹' + (subtotal+tax).toFixed(2);
+  const note = document.getElementById('billNote').value;
+  document.getElementById('rNote').textContent = note || '';
+  window.print();
+}
+
+async function saveBill() {
+  const ids = Object.keys(cart);
+  if (!ids.length) return;
+  const items = ids.map(id => ({
+    product_id: id,
+    name: cart[id].name,
+    qty: cart[id].qty,
+    price: cart[id].price,
+    tax: cart[id].tax
+  }));
+  const note = document.getElementById('billNote').value;
+  const res = await fetch('/billing/save', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ items, note })
+  });
+  const data = await res.json();
+  if (data.success) {
+    billNum = data.next_bill;
+    document.getElementById('billNumBadge').textContent = 'Bill #' + billNum;
+    clearCart();
+    document.getElementById('billNote').value = '';
+    // Flash success
+    const flash = document.createElement('div');
+    flash.className = 'flash flash-success';
+    flash.textContent = '✓ Bill #' + data.bill_num + ' saved! Total: ₹' + data.total;
+    document.querySelector('.main').prepend(flash);
+    setTimeout(() => flash.remove(), 3000);
+  }
+}
+</script>
+{% endblock %}
