@@ -246,4 +246,5 @@ def export_customers(): return _csv_response(da.export_customer_insights(), "cus
 def export_gst():       return _csv_response(da.get_gst_summary(), "gst_report.csv")
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    import os
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
