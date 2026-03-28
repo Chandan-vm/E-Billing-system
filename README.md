@@ -155,14 +155,3 @@ gunicorn -w 4 -b 0.0.0.0:8000 app:app
 - Export `/export/gst` → ready for GSTR-1 filing prep
 
 ---
-
-## 💼 Resume / Interview Talking Points
-
-> *"Built a full-stack E-Billing system with a SQL-driven analytics engine. Implemented RFM customer segmentation, MoM revenue trend analysis with window functions, and GST-compliant invoicing. Created a dual-dashboard (Flask + Streamlit/Plotly) with CSV exports ready for Power BI integration. Schema follows 3NF with indexed foreign keys and pre-built analytical views."*
-
-**Key numbers to mention:**
-- 5 normalized tables, 4 analytics views, 10+ indexed queries
-- RFM segmentation across 5 tiers (VIP → At-Risk)
-- 10 KPIs: ARPU, MoM growth, repeat rate, LTV, aging buckets
-- GST-ready: CGST/SGST/IGST split, GSTR-1 export
-- Dual interface: Flask web app + Streamlit BI dashboard
